@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
+import { DrawerProvider } from './contexts/DrawerContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import Header from './components/Header';
 import Layout from './components/Layout';
@@ -31,10 +32,11 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <CartProvider>
-          <Router>
-            <div className="min-h-screen bg-background">
-              <Header />
-              <Layout>
+          <DrawerProvider>
+            <Router>
+              <div className="min-h-screen bg-background">
+                <Header />
+                <Layout>
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/login" element={<Login />} />
@@ -125,8 +127,9 @@ function App() {
               </Layout>
             </div>
           </Router>
-        </CartProvider>
-      </AuthProvider>
+        </DrawerProvider>
+      </CartProvider>
+    </AuthProvider>
     </ErrorBoundary>
   );
 }

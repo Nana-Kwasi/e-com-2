@@ -48,6 +48,7 @@ export interface Product {
   stock: number;
   isHotDeal: boolean;
   isActive: boolean;
+  approvalStatus?: 'pending' | 'approved' | 'rejected' | 'suspended';
   createdAt: Date;
   updatedAt: Date;
   tags?: string[];
@@ -77,6 +78,7 @@ export interface Product {
 
 export interface Order {
   id: string;
+  orderId?: string; // Unique order ID for tracking
   buyerId: string;
   sellerId: string;
   products: OrderItem[];

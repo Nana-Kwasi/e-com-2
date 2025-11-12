@@ -41,6 +41,20 @@ const Cart: React.FC = () => {
     return new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS' }).format(price);
   };
 
+  const handleRemoveItem = (productId: string, title: string) => {
+    const confirmed = window.confirm(`Remove "${title}" from your cart?`);
+    if (confirmed) {
+      removeFromCart(productId);
+    }
+  };
+
+  const handleClearCart = () => {
+    const confirmed = window.confirm('Clear all items from your cart?');
+    if (confirmed) {
+      clearCart();
+    }
+  };
+
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
@@ -56,7 +70,7 @@ const Cart: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Shopping Cart ({getTotalItems()} items)</h1>
-        <Button variant="outline" onClick={clearCart}>Clear Cart</Button>
+        <Button variant="outline" onClick={handleClearCart}>Clear Cart</Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -128,7 +142,7 @@ const Cart: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => removeFromCart(item.productId)}
+                        onClick={() => handleRemoveItem(item.productId, item.product.title)}
                         className="text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />

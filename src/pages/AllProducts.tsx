@@ -49,26 +49,7 @@ const AllProducts: React.FC = () => {
         discount: filters.discount || undefined,
       });
 
-      // Additional in-memory filtering to ensure results respect filters even if Firestore query falls back
-      let filteredResult = [...result];
-
-      if (minPrice !== undefined) {
-        filteredResult = filteredResult.filter(product => Number(product.price || 0) >= minPrice!);
-      }
-
-      if (maxPrice !== undefined) {
-        filteredResult = filteredResult.filter(product => Number(product.price || 0) <= maxPrice!);
-      }
-
-      if (filters.hotDeal) {
-        filteredResult = filteredResult.filter(product => product.isHotDeal === true);
-      }
-
-      if (filters.discount) {
-        filteredResult = filteredResult.filter(product => Number(product.discount || 0) > 0);
-      }
-
-      setProducts(filteredResult);
+      setProducts(result);
     } catch (error) {
       console.error('Error loading products:', error);
       setProducts([]);

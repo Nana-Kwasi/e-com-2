@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Heart, Minus, Plus } from 'lucide-react';
+import { ShoppingCart, Heart, Minus, Plus, Star, MessageSquare } from 'lucide-react';
 import { Product } from '../types';
 import { ProductService } from '../services/productService';
+import { ReviewService, Review } from '../services/reviewService';
 import { useCart } from '../contexts/CartContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -20,18 +22,40 @@ const ProductDetails: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [loadingFeatured, setLoadingFeatured] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [averageRating, setAverageRating] = useState(0);
+  const [loadingReviews, setLoadingReviews] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (id) {
       loadProduct();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   useEffect(() => {
     if (product) {
       loadFeaturedProducts();
+      loadReviews();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product]);
+
+  const loadReviews = async () => {
+    if (!id) return;
+    try {
+      setLoadingReviews(true);
+      const productReviews = await ReviewService.getProductReviews(id);
+      setReviews(productReviews);
+      const avg = await ReviewService.getProductAverageRating(id);
+      setAverageRating(avg);
+    } catch (error) {
+      console.error('Error loading reviews:', error);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
 
   const loadProduct = async () => {
     try {
@@ -99,7 +123,7 @@ const ProductDetails: React.FC = () => {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:grid-rows-auto">
       <div>
         <div className="aspect-square w-full mb-4 rounded-lg overflow-hidden bg-muted">
           <img
@@ -291,9 +315,89 @@ const ProductDetails: React.FC = () => {
         </Card>
       </div>
 
+      {/* Reviews Section */}
+      <div className="mt-12 col-span-1 lg:col-span-2">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold">Reviews</h2>
+          <div className="flex items-center gap-2">
+            {averageRating > 0 && (
+              <>
+                <div className="flex items-center gap-1">
+                  <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                  <span className="font-semibold">{averageRating.toFixed(1)}</span>
+                </div>
+                <span className="text-muted-foreground">({reviews.length} reviews)</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {loadingReviews ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : reviews.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground mb-4">No reviews yet</p>
+              {user && (
+                <Button onClick={() => navigate(`/feedback?productId=${id}`)}>
+                  Be the first to review
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {reviews.map((review) => (
+              <Card key={review.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold">
+                      {review.buyerName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="font-semibold">{review.buyerName}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex gap-1">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`h-4 w-4 ${
+                                    star <= review.rating
+                                      ? 'fill-yellow-400 text-yellow-400'
+                                      : 'text-muted-foreground'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            {review.isVerifiedPurchase && (
+                              <Badge variant="secondary" className="text-xs">
+                                Verified Purchase
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(review.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{review.comment}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Featured Products from Same Category */}
       {featuredProducts.length > 0 && (
-        <div className="mt-12">
+        <div className="mt-12 col-span-1 lg:col-span-2">
           <h2 className="text-2xl font-bold mb-6">You May Also Like</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {featuredProducts.map((featuredProduct) => (

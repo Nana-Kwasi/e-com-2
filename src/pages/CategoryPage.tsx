@@ -27,6 +27,21 @@ const CategoryPage: React.FC = () => {
     }
   }, [categoryName, selectedGender, filters]);
 
+  const normalizeCategory = (value: string) => {
+    return value
+      .split(' ')
+      .map((segment) => {
+        const trimmed = segment.trim();
+        if (!trimmed) return '';
+        if (/^[^a-zA-Z]+$/.test(trimmed)) {
+          return trimmed;
+        }
+        return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+      })
+      .filter(Boolean)
+      .join(' ');
+  };
+
   const parsePrice = (value: string) => {
     if (!value.trim()) return undefined;
     const parsed = parseFloat(value);
@@ -37,9 +52,7 @@ const CategoryPage: React.FC = () => {
     try {
       setLoading(true);
       // Normalize category - capitalize first letter to match database
-      const normalizedCategory = categoryName 
-        ? categoryName.charAt(0).toUpperCase() + categoryName.slice(1).toLowerCase()
-        : '';
+      const normalizedCategory = categoryName ? normalizeCategory(categoryName) : '';
 
       let minPrice = parsePrice(filters.minPrice);
       let maxPrice = parsePrice(filters.maxPrice);
@@ -51,7 +64,7 @@ const CategoryPage: React.FC = () => {
       }
       
       const result = await ProductService.getProducts({
-        category: normalizedCategory || undefined,
+        category: categoryName,
         minPrice,
         maxPrice,
         hotDeal: filters.hotDeal || undefined,
@@ -90,9 +103,7 @@ const CategoryPage: React.FC = () => {
   };
 
   const showGenderTabs = categoryName && ['clothing', 'shoes', 'sports'].includes(categoryName.toLowerCase());
-  const displayCategory = categoryName 
-    ? categoryName.charAt(0).toUpperCase() + categoryName.slice(1).toLowerCase()
-    : '';
+  const displayCategory = categoryName ? normalizeCategory(categoryName) : '';
 
   return (
     <div className="space-y-6">

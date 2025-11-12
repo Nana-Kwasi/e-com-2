@@ -86,7 +86,7 @@ const OrderTracking: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Order #{order.id.slice(0, 8)}</CardTitle>
+          <CardTitle>Order ID: {order.orderId || order.id}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-4">

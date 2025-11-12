@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Search, ShoppingCart, User, Menu, X, Heart, Store } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Search, ShoppingCart, User, X, Heart, Store, Menu } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
+import { useDrawer } from '../contexts/DrawerContext';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import {
@@ -17,11 +18,15 @@ import { Badge } from './ui/badge';
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, signOut } = useAuth();
   const { getTotalItems } = useCart();
+  const { toggleDrawer } = useDrawer();
   const [searchTerm, setSearchTerm] = useState('');
   const [storeSearchTerm, setStoreSearchTerm] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  const hideSidebar = ['/login', '/signup'].includes(location.pathname);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +51,15 @@ const Header: React.FC = () => {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-6 flex-1">
+          {!hideSidebar && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleDrawer}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
           <button
             onClick={() => navigate('/')}
             className="text-2xl font-bold text-primary hover:text-primary/80"
@@ -89,7 +103,7 @@ const Header: React.FC = () => {
             className="md:hidden"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
           </Button>
 
           <Button

@@ -189,7 +189,7 @@ const ProductCarousel: React.FC<ProductCarouselProps> = ({
             position: 'relative',
           }}
         >
-          {products.map((product, index) => (
+          {products.map((product) => (
             <div
               key={product.id}
               style={{

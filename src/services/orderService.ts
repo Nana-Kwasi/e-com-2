@@ -36,9 +36,14 @@ export class OrderService {
 
     const totalAmount = orderItems.reduce((sum, item) => sum + item.totalPrice, 0);
 
+    // Generate unique Order ID: amansan + four digit unique numbers
+    const random = Math.floor(Math.random() * 9000) + 1000; // 1000-9999
+    const uniqueOrderId = `amansan${random}`;
+
     const orderData = {
       buyerId,
       sellerId,
+      orderId: uniqueOrderId,
       products: orderItems,
       totalAmount,
       status: 'order_received',
@@ -112,6 +117,7 @@ export class OrderService {
       
       return {
         id: docSnap.id,
+        orderId: data.orderId || docSnap.id,
         ...data,
         paymentStatus: paymentStatus,
         createdAt: data.createdAt?.toDate() || new Date(),
@@ -123,51 +129,23 @@ export class OrderService {
   }
 
   static async getOrdersByBuyer(buyerId: string): Promise<Order[]> {
-    try {
-      const q = query(
-        collection(db, 'orders'),
-        where('buyerId', '==', buyerId),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-          estimatedDelivery: data.estimatedDelivery?.toDate(),
-        } as Order;
-      });
-    } catch (error: any) {
-      if (error.code === 'failed-precondition') {
-        console.warn('Firestore index required. Loading orders without orderBy...');
-        const q = query(
-          collection(db, 'orders'),
-          where('buyerId', '==', buyerId)
-        );
-        const snapshot = await getDocs(q);
-        const orders = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-            estimatedDelivery: data.estimatedDelivery?.toDate(),
-          } as Order;
-        });
-        // Sort manually by createdAt
-        return orders.sort((a, b) => {
-          const aDate = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
-          const bDate = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
-          return bDate.getTime() - aDate.getTime();
-        });
-      }
-      throw error;
-    }
+    const snapshot = await getDocs(
+      query(collection(db, 'orders'), where('buyerId', '==', buyerId))
+    );
+
+    const orders = snapshot.docs.map((docSnapshot) => {
+      const data = docSnapshot.data();
+      return {
+        id: docSnapshot.id,
+        orderId: data.orderId || docSnapshot.id,
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+        estimatedDelivery: data.estimatedDelivery?.toDate(),
+      } as Order;
+    });
+
+    return orders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   static subscribeToOrder(orderId: string, callback: (order: Order | null) => void) {
@@ -177,6 +155,7 @@ export class OrderService {
         const data = docSnap.data();
         callback({
           id: docSnap.id,
+          orderId: data.orderId || docSnap.id,
           ...data,
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
@@ -189,55 +168,28 @@ export class OrderService {
   }
 
   static subscribeToBuyerOrders(buyerId: string, callback: (orders: Order[]) => void) {
-    const q = query(
-      collection(db, 'orders'),
-      where('buyerId', '==', buyerId),
-      orderBy('createdAt', 'desc')
-    );
-    
-    return onSnapshot(q, 
+    const q = query(collection(db, 'orders'), where('buyerId', '==', buyerId));
+
+    return onSnapshot(
+      q,
       (snapshot) => {
-        const orders = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-            estimatedDelivery: data.estimatedDelivery?.toDate(),
-          } as Order;
-        });
+        const orders = snapshot.docs
+          .map((docSnapshot) => {
+            const data = docSnapshot.data();
+            return {
+              id: docSnapshot.id,
+              ...data,
+              createdAt: data.createdAt?.toDate() || new Date(),
+              updatedAt: data.updatedAt?.toDate() || new Date(),
+              estimatedDelivery: data.estimatedDelivery?.toDate(),
+            } as Order;
+          })
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
         callback(orders);
       },
       (error) => {
-        if (error.code === 'failed-precondition') {
-          console.warn('Firestore index required for real-time orders. Using fallback query...');
-          const fallbackQ = query(
-            collection(db, 'orders'),
-            where('buyerId', '==', buyerId)
-          );
-          return onSnapshot(fallbackQ, (snapshot) => {
-            const orders = snapshot.docs.map(doc => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                ...data,
-                createdAt: data.createdAt?.toDate() || new Date(),
-                updatedAt: data.updatedAt?.toDate() || new Date(),
-                estimatedDelivery: data.estimatedDelivery?.toDate(),
-              } as Order;
-            });
-            // Sort manually by createdAt
-            orders.sort((a, b) => {
-              const aDate = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
-              const bDate = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
-              return bDate.getTime() - aDate.getTime();
-            });
-            callback(orders);
-          });
-        } else {
-          console.error('Error in order subscription:', error);
-        }
+        console.error('Error in order subscription:', error);
       }
     );
   }

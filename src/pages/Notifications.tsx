@@ -1,18 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { NotificationService, Notification } from '../services/notificationService';
+import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: 'order_update' | 'payment' | 'promotion' | 'system';
-  isRead: boolean;
-  createdAt: Date;
-}
 
 const Notifications: React.FC = () => {
   const { user } = useAuth();
@@ -20,30 +12,40 @@ const Notifications: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Implement notification service
-    setNotifications([
-      {
-        id: '1',
-        title: 'Order Update',
-        message: 'Your order #12345 has been shipped',
-        type: 'order_update',
-        isRead: false,
-        createdAt: new Date(),
-      },
-      {
-        id: '2',
-        title: 'New Promotion',
-        message: 'Special discount on all electronics!',
-        type: 'promotion',
-        isRead: false,
-        createdAt: new Date(Date.now() - 86400000),
-      },
-    ]);
-    setLoading(false);
+    if (user?.id) {
+      loadNotifications();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  const loadNotifications = async () => {
+    try {
+      setLoading(true);
+      const userNotifications = await NotificationService.getUserNotifications(user!.id);
+      setNotifications(userNotifications);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAsRead = async (id: string) => {
+    try {
+      await NotificationService.markAsRead(id, user!.id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await NotificationService.markAllAsRead(user!.id);
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
   };
 
   const getTypeColor = (type: string) => {
@@ -52,6 +54,7 @@ const Notifications: React.FC = () => {
       payment: 'bg-green-500',
       promotion: 'bg-yellow-500',
       system: 'bg-gray-500',
+      seller_announcement: 'bg-purple-500',
     };
     return colors[type] || 'bg-gray-500';
   };
@@ -64,13 +67,24 @@ const Notifications: React.FC = () => {
     );
   }
 
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Notifications</h1>
-        <Badge>
-          {notifications.filter(n => !n.isRead).length} unread
-        </Badge>
+        <div className="flex items-center gap-4">
+          {unreadCount > 0 && (
+            <Badge>
+              {unreadCount} unread
+            </Badge>
+          )}
+          {unreadCount > 0 && (
+            <Button variant="outline" size="sm" onClick={markAllAsRead}>
+              Mark all as read
+            </Button>
+          )}
+        </div>
       </div>
 
       {notifications.length === 0 ? (
@@ -102,7 +116,8 @@ const Notifications: React.FC = () => {
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">{notification.message}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(notification.createdAt).toLocaleDateString()}
+                      {new Date(notification.createdAt).toLocaleDateString()} at{' '}
+                      {new Date(notification.createdAt).toLocaleTimeString()}
                     </p>
                   </div>
                 </div>
@@ -116,4 +131,3 @@ const Notifications: React.FC = () => {
 };
 
 export default Notifications;
-

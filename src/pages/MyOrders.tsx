@@ -82,7 +82,7 @@ const MyOrders: React.FC = () => {
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="mb-2">Order #{order.id.slice(0, 8)}</CardTitle>
+                    <CardTitle className="mb-2">Order ID: {order.orderId || order.id}</CardTitle>
                     <p className="text-sm text-muted-foreground">
                       {new Date(order.createdAt).toLocaleDateString()}
                     </p>

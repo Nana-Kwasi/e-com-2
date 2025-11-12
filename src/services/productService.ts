@@ -19,28 +19,22 @@ import { Product, SearchFilters } from '../types';
 export class ProductService {
   static async getProducts(filters?: SearchFilters, lastDoc?: any): Promise<Product[]> {
     try {
-      let q = query(collection(db, 'products'), where('isActive', '==', true));
+      let q = query(
+        collection(db, 'products'),
+        where('isActive', '==', true),
+        where('approvalStatus', '==', 'approved')
+      );
       
-      if (filters?.category) {
-        // Normalize category to match database format (capitalize first letter)
-        const normalizedCategory = filters.category.charAt(0).toUpperCase() + filters.category.slice(1).toLowerCase();
+      const normalizedCategory = filters?.category
+        ? this.normalizeCategory(filters.category)
+        : undefined;
+
+      if (normalizedCategory) {
         q = query(q, where('category', '==', normalizedCategory));
-      }
-      
-      if (filters?.minPrice) {
-        q = query(q, where('price', '>=', filters.minPrice));
-      }
-      
-      if (filters?.maxPrice) {
-        q = query(q, where('price', '<=', filters.maxPrice));
       }
       
       if (filters?.hotDeal) {
         q = query(q, where('isHotDeal', '==', true));
-      }
-      
-      if (filters?.discount) {
-        q = query(q, where('discount', '>', 0));
       }
       
       q = query(q, orderBy('createdAt', 'desc'), limit(20));
@@ -50,34 +44,38 @@ export class ProductService {
       }
       
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      return this.applyClientFilters(
+        snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)),
+        filters,
+        normalizedCategory
+      );
     } catch (error: any) {
       if (error.code === 'failed-precondition') {
         console.warn('Firestore index required. Loading products without orderBy...');
-        let q = query(collection(db, 'products'), where('isActive', '==', true));
+        let q = query(
+          collection(db, 'products'),
+          where('isActive', '==', true),
+          where('approvalStatus', '==', 'approved')
+        );
         
-        if (filters?.category) {
-          q = query(q, where('category', '==', filters.category));
-        }
-        
-        if (filters?.minPrice) {
-          q = query(q, where('price', '>=', filters.minPrice));
-        }
-        
-        if (filters?.maxPrice) {
-          q = query(q, where('price', '<=', filters.maxPrice));
+        const normalizedCategory = filters?.category
+          ? this.normalizeCategory(filters.category)
+          : undefined;
+
+        if (normalizedCategory) {
+          q = query(q, where('category', '==', normalizedCategory));
         }
         
         if (filters?.hotDeal) {
           q = query(q, where('isHotDeal', '==', true));
         }
         
-        if (filters?.discount) {
-          q = query(q, where('discount', '>', 0));
-        }
-        
         const snapshot = await getDocs(q);
-        const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        const products = this.applyClientFilters(
+          snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)),
+          filters,
+          normalizedCategory
+        );
         // Sort manually by createdAt
         return products.sort((a, b) => {
           const aDate = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
@@ -87,6 +85,70 @@ export class ProductService {
       }
       throw error;
     }
+  }
+
+  private static applyClientFilters(products: Product[], filters?: SearchFilters, normalizedCategory?: string) {
+    if (!filters) return products;
+
+    let filtered = [...products];
+
+    if (normalizedCategory) {
+      filtered = filtered.filter(product => {
+        if (!product.category) return false;
+        const productCategory = this.normalizeCategory(String(product.category));
+        return productCategory === normalizedCategory;
+      });
+    }
+
+    if (filters.minPrice !== undefined) {
+      const min = Number(filters.minPrice);
+      if (!Number.isNaN(min)) {
+        filtered = filtered.filter(product => {
+          const price = this.parseNumericField(product.price);
+          return price !== null && price >= min;
+        });
+      }
+    }
+
+    if (filters.maxPrice !== undefined) {
+      const max = Number(filters.maxPrice);
+      if (!Number.isNaN(max)) {
+        filtered = filtered.filter(product => {
+          const price = this.parseNumericField(product.price);
+          return price !== null && price <= max;
+        });
+      }
+    }
+
+    if (filters.discount) {
+      filtered = filtered.filter(product => {
+        const discount = this.parseNumericField(product.discount);
+        return discount !== null && discount > 0;
+      });
+    }
+
+    return filtered;
+  }
+
+  private static parseNumericField(value: unknown): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+
+    if (typeof value === 'string') {
+      const cleaned = value.replace(/[^0-9.-]+/g, '');
+      if (!cleaned) {
+        return null;
+      }
+      const parsed = parseFloat(cleaned);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    return null;
   }
 
   static async getProduct(id: string): Promise<Product | null> {
@@ -202,6 +264,21 @@ export class ProductService {
         }
       }
     );
+  }
+
+  private static normalizeCategory(value: string): string {
+    return value
+      .split(' ')
+      .map((segment) => {
+        const trimmed = segment.trim();
+        if (!trimmed) return '';
+        if (/^[^a-zA-Z]+$/.test(trimmed)) {
+          return trimmed;
+        }
+        return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+      })
+      .filter(Boolean)
+      .join(' ');
   }
 }
 
